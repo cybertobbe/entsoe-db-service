@@ -9,7 +9,7 @@ public class PriceConsumerRoute extends RouteBuilder {
     @Override
     public void configure() throws Exception {
 
-        from("jms:queue:entsoe.prices")
+        from("jms:queue:entsoe.prices")     //Will show up in ActiveMQ as "entsoe.prices" queue as an active consumer
                 .routeId("price-consumer-route")
                 .log("Received message from queue")
                 .bean(PriceParserService.class, "parseAndSave")
