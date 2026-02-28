@@ -31,26 +31,6 @@ Base path: `/api/prices`
 | `GET` | `/api/prices/area/{area}` | Return prices for a specific bidding-zone area, ordered by timestamp descending |
 | `GET` | `/api/prices/today` | Return prices for the current calendar day, ordered by timestamp |
 
-## Configuration
-
-All configurable values are listed in `src/main/resources/application.properties`. Sensitive values are read from environment variables with fallback defaults shown in the table below.
-
-| Property | Environment Variable | Default |
-|----------|----------------------|---------|
-| MySQL username | `MYSQL_USER` | `entsoe` |
-| MySQL password | `MYSQL_PASSWORD` | `entsoe` |
-| Artemis username | `ARTEMIS_USER` | `admin` |
-| Artemis password | `ARTEMIS_PASSWORD` | `admin` |
-| Spring Security username | `SPRING_SECURITY_USER_NAME` | `user` |
-| Spring Security password | `SPRING_SECURITY_USER_PASSWORD` | `yourpassword` |
-
-Other notable defaults:
-
-- **Server port**: `8087`
-- **MySQL URL**: `jdbc:mysql://192.168.0.6:3307/entsoe`
-- **Artemis broker URL**: `tcp://192.168.0.6:61616`
-- **Spring Boot Admin URL**: `http://192.168.0.6:8085`
-- **Log file**: `/app/logs/application.log`
 
 ## Building and Running
 
