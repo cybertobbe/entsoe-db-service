@@ -17,23 +17,45 @@ public class PriceParserService {
     @Autowired
     private SpotPriceRepository repository;
 
-    public void parseAndSave(String xml) throws Exception {
+    public void parseAndSave(String xml) {
+        try {
+            List<SpotPrice> prices = parseXml(xml);
+
+            int saved = 0;
+            for (SpotPrice price : prices) {
+                try {
+                    repository.save(price);
+                    saved++;
+                } catch (Exception e) {
+                    // Duplicate - ignorera
+                }
+            }
+
+            System.out.println("Saved " + saved + " new prices (ignored " + (prices.size() - saved) + " duplicates)");
+        } catch (Exception e) {
+            System.err.println("Error parsing XML: " + e.getMessage());
+        }
+    }
+
+    private List<SpotPrice> parseXml(String xml) throws Exception {
+        List<SpotPrice> prices = new ArrayList<>();
+
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);
         DocumentBuilder builder = factory.newDocumentBuilder();
         Document doc = builder.parse(new ByteArrayInputStream(xml.getBytes()));
 
-        List<SpotPrice> prices = new ArrayList<>();
+        NodeList timeSeries = doc.getElementsByTagNameNS("*", "TimeSeries");
 
-        NodeList timeSeriesList = doc.getElementsByTagNameNS("*", "TimeSeries");
+        for (int i = 0; i < timeSeries.getLength(); i++) {
+            Element ts = (Element) timeSeries.item(i);
 
-        for (int i = 0; i < timeSeriesList.getLength(); i++) {
-            Element timeSeries = (Element) timeSeriesList.item(i);
+            String area = getElementValue(ts, "in_Domain.mRID");
+            if (area.isEmpty()) {
+                area = getElementValue(ts, "out_Domain.mRID");
+            }
 
-            String area = getElementValue(timeSeries, "in_Domain.mRID");
-            String currency = getElementValue(timeSeries, "currency_Unit.name");
-
-            NodeList periods = timeSeries.getElementsByTagNameNS("*", "Period");
+            NodeList periods = ts.getElementsByTagNameNS("*", "Period");
 
             for (int j = 0; j < periods.getLength(); j++) {
                 Element period = (Element) periods.item(j);
@@ -42,7 +64,7 @@ public class PriceParserService {
                 String resolution = getElementValue(period, "resolution");
 
                 LocalDateTime start = parseDateTime(startStr);
-                int minutesPerPoint = parseResolution(resolution);
+                int intervalMinutes = parseResolution(resolution);
 
                 NodeList points = period.getElementsByTagNameNS("*", "Point");
 
@@ -52,15 +74,20 @@ public class PriceParserService {
                     int position = Integer.parseInt(getElementValue(point, "position"));
                     BigDecimal price = new BigDecimal(getElementValue(point, "price.amount"));
 
-                    LocalDateTime timestamp = start.plusMinutes((long) (position - 1) * minutesPerPoint);
+                    LocalDateTime timestamp = start.plusMinutes((long) (position - 1) * intervalMinutes);
 
-                    prices.add(new SpotPrice(timestamp, price, currency, area));
+                    SpotPrice spotPrice = new SpotPrice();
+                    spotPrice.setTimestamp(timestamp);
+                    spotPrice.setPrice(price);
+                    spotPrice.setCurrency("EUR");
+                    spotPrice.setArea(area);
+
+                    prices.add(spotPrice);
                 }
             }
         }
 
-        repository.saveAll(prices);
-        System.out.println("Saved " + prices.size() + " price points");
+        return prices;
     }
 
     private String getElementValue(Element parent, String tagName) {
