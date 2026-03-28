@@ -7,12 +7,13 @@ import javax.xml.parsers.*;
 import java.io.*;
 import java.math.BigDecimal;
 import java.time.*;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
 @Service
 public class PriceParserService {
+
+    private static final ZoneId STOCKHOLM_ZONE = ZoneId.of("Europe/Stockholm");
 
     @Autowired
     private SpotPriceRepository repository;
@@ -27,13 +28,14 @@ public class PriceParserService {
                     repository.save(price);
                     saved++;
                 } catch (Exception e) {
-                    // Duplicate - ignorera
+                    // Duplicatw - ignore
                 }
             }
 
             System.out.println("Saved " + saved + " new prices (ignored " + (prices.size() - saved) + " duplicates)");
         } catch (Exception e) {
             System.err.println("Error parsing XML: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -63,7 +65,10 @@ public class PriceParserService {
                 String startStr = getElementValue(period, "start");
                 String resolution = getElementValue(period, "resolution");
 
-                LocalDateTime start = parseDateTime(startStr);
+                // Parse UTC-time and convert to Stockholm-time
+                ZonedDateTime startUtc = ZonedDateTime.parse(startStr);
+                ZonedDateTime startStockholm = startUtc.withZoneSameInstant(STOCKHOLM_ZONE);
+
                 int intervalMinutes = parseResolution(resolution);
 
                 NodeList points = period.getElementsByTagNameNS("*", "Point");
@@ -74,7 +79,9 @@ public class PriceParserService {
                     int position = Integer.parseInt(getElementValue(point, "position"));
                     BigDecimal price = new BigDecimal(getElementValue(point, "price.amount"));
 
-                    LocalDateTime timestamp = start.plusMinutes((long) (position - 1) * intervalMinutes);
+                    // Calculate timestamp with the correct position
+                    ZonedDateTime timestampStockholm = startStockholm.plusMinutes((long) (position - 1) * intervalMinutes);
+                    LocalDateTime timestamp = timestampStockholm.toLocalDateTime();
 
                     SpotPrice spotPrice = new SpotPrice();
                     spotPrice.setTimestamp(timestamp);
@@ -96,10 +103,6 @@ public class PriceParserService {
             return nodes.item(0).getTextContent();
         }
         return "";
-    }
-
-    private LocalDateTime parseDateTime(String dateStr) {
-        return ZonedDateTime.parse(dateStr).toLocalDateTime();
     }
 
     private int parseResolution(String resolution) {
